@@ -1,0 +1,145 @@
+services:
+  # ======================
+  # DATABASE CHO KONG
+  # ======================
+  kong-db:
+    image: postgres:13
+    container_name: api-gateway-security-service-kong-db-1
+    environment:
+      POSTGRES_DB: kong
+      POSTGRES_USER: kong
+      POSTGRES_PASSWORD: kongpass
+    networks:
+      - kong-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kong"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+
+  # ======================
+  # KONG MIGRATIONS - tự động bootstrap
+  # ======================
+  kong-migrations:
+    image: kong:3.3
+    container_name: kong-migrations
+    depends_on:
+      kong-db:
+        condition: service_healthy
+    command: kong migrations bootstrap
+    restart: on-failure
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-db
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kongpass
+      KONG_PG_DATABASE: kong
+    networks:
+      - kong-network
+
+  # ======================
+  # KONG GATEWAY CHÍNH
+  # ======================
+  kong:
+    image: kong:3.3
+    container_name: api-gateway-security-service-kong-1
+    depends_on:
+      kong-db:
+        condition: service_healthy
+      kong-migrations:
+        condition: service_completed_successfully
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-db
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kongpass
+      KONG_PG_DATABASE: kong
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+      KONG_PLUGINS: bundled
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+    networks:
+      - kong-network
+
+  # ======================
+  # BACKEND APP (Node/Express)
+  # ======================
+  backend:
+    build: ./backend
+    container_name: api-gateway-security-service-backend-1
+    ports:
+      - "3000:3000"
+    networks:
+      - kong-network
+
+  # ======================
+  # KEYCLOAK SERVICE (IAM)
+  # ======================
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.1
+    container_name: api-gateway-security-service-keycloak-1
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+    command: start-dev
+    ports:
+      - "8080:8080"
+    networks:
+      - kong-network
+
+  # ======================
+  # LOGGING STACK (ELK)
+  # ======================
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    networks:
+      - kong-network
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.13.0
+    container_name: logstash
+    depends_on:
+      - elasticsearch
+    ports:
+      - "5044:5044"
+      - "12201:12201/udp"
+    volumes:
+      - ./logging/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+    networks:
+      - kong-network
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.0
+    container_name: kibana
+    depends_on:
+      - elasticsearch
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    networks:
+      - kong-network
+
+# ======================
+#  NETWORK + VOLUME
+# ======================
+networks:
+  kong-network:
+    driver: bridge
+
+volumes:
+  es_data:
