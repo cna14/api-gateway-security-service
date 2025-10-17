@@ -1,0 +1,13 @@
+.env
+node_modules/
+*.log
+*.sqlite
+*.pyc
+__pycache__/
+.DS_Store
+*.iml
+*.swp
+.vscode/
+.idea/
+logs/
+data/
