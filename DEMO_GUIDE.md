@@ -2,7 +2,6 @@ Dưới đây là **file `demo_guide.md` hoàn chỉnh**, bao gồm cả **mục
 
 ***
 
-```markdown
 # Demo API Gateway Security Service – Kịch bản kiểm thử tổng hợp
 
 Tài liệu này hướng dẫn kiểm thử toàn bộ hệ thống API Gateway Security Service: từ Kong Gateway, dịch vụ backend, bảo mật JWT, rate-limiting cho đến pipeline logging ELK (Logstash, Elasticsearch, Kibana).
@@ -164,6 +163,6 @@ Sau khi chạy toàn bộ kịch bản:
 - Xác minh dịch vụ xuyên suốt từ client ➜ Kong ➜ backend ➜ Logstash ➜ Elasticsearch ➜ Kibana.  
 - Thống kê dữ liệu thật để phục vụ báo cáo.  
 - Các log được tự động index và truy vấn theo trường thời gian (`@timestamp`), hỗ trợ minh chứng tính **traceability & observability** cho hệ thống API Gateway Security Service.
-```
+
 
 ***
